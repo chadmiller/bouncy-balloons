@@ -5,7 +5,11 @@ from itertools import cycle
 import pyglet
 from pyglet.window import mouse
 
-window = pyglet.window.Window(width=1400, height=1000)
+LINE_WIDTH = 4
+
+COLORS = cycle(iter(((0x50, 0x26, 0xa7), (0x8d, 0x44, 0x8b), (0xcc, 0x6a, 0x87), (0xec, 0xcd, 0x8f), (0x42, 0xb8, 0x83), (0x34, 0x74, 0x74), (0xff, 0x7e, 0x67), (0xc7, 0x0d, 0x3a), (0xed, 0x51, 0x07), (0x02, 0x38, 0x3c), )))
+
+window = pyglet.window.Window(fullscreen=True)
 
 
 class Circle(object):
@@ -28,14 +32,16 @@ class Circle(object):
         self.alive = 1
         self.sparseness = 3  # distance between points in circumference
 
+        #self.draw_mode = pyglet.gl.GL_POINTS
+        self.draw_mode = pyglet.gl.GL_POLYGON
+
 
     def draw(self):
         if not self._last_calculated or time() > (self._last_calculated + self.update_interval):
             self._recalculate()
             self._last_calculated = time()
         if self._vertex_list:
-            self._vertex_list.draw(pyglet.gl.GL_POINTS)
-
+            self._vertex_list.draw(self.draw_mode)
 
     def _recalculate(self):
         if self.is_growing:
@@ -59,10 +65,10 @@ class Circle(object):
         vertex_list = [i for (x1, y1) in self.points for i in (x1, y1)]
 
         if not self._vertex_list or len(self.points) != len(self._vertex_list.vertices):
-            self._vertex_list = pyglet.graphics.vertex_list(len(self.points), "v2i", "c3B")
+            self._vertex_list = pyglet.graphics.vertex_list(len(self.points), "v2i", "c4B")
 
         self._vertex_list.vertices = vertex_list
-        self._vertex_list.colors = [i for _ in self.points for i in self.color]
+        self._vertex_list.colors = tuple(i for _ in self.points for i in self.color+(int(round(min(255, self.alive*255))),))
 
         if self.birth < time() - 10:
             self.alive -= 0.002
@@ -74,20 +80,21 @@ class Circle(object):
         # Other may encompass self
         #   other---------self+radius==]--]
         if other.radius >= distance_between_centers:
-            if abs(other.radius - (distance_between_centers + self.radius)) < 1:
+            # Edges are within some distance?
+            if abs(other.radius - (distance_between_centers + self.radius)) < LINE_WIDTH:
                 return True
 
         # Self may encompass other
         #   self---------other+radius==]--]
         if self.radius >= distance_between_centers:
-            if abs(self.radius - (distance_between_centers + other.radius)) < 1:
+            # Edges are within some distance?
+            if abs(self.radius - (distance_between_centers + other.radius)) < LINE_WIDTH:
                 return True
 
-        if abs((self.radius + other.radius) - distance_between_centers) < 1:
+        if abs((self.radius + other.radius) - distance_between_centers) < LINE_WIDTH:
             return True
 
         return False
-
 
     def bounce(self):
         self.is_growing = not self.is_growing
@@ -97,7 +104,6 @@ def invalidate_window(dt):
     window.invalid = True
 
 
-colors = cycle(iter(((0x50, 0x26, 0xa7), (0x8d, 0x44, 0x8b), (0xcc, 0x6a, 0x87), (0xec, 0xcd, 0x8f), (0x42, 0xb8, 0x83), (0x34, 0x74, 0x74), (0x35, 0x49, 0x5e), (0xff, 0x7e, 0x67), (0xc7, 0x0d, 0x3a), (0xed, 0x51, 0x07), (0x23, 0x03, 0x38), (0x02, 0x38, 0x3c), )))
 
 @window.event
 def on_mouse_press(x, y, button, modifiers):
@@ -132,7 +138,15 @@ all_circles = []
 
 window.set_mouse_cursor(window.get_system_mouse_cursor(window.CURSOR_CROSSHAIR))
 
-#pyglet.gl.glLineWidth(3)
+pyglet.gl.glPolygonMode(pyglet.gl.GL_FRONT_AND_BACK, pyglet.gl.GL_LINE)
+pyglet.gl.glLineWidth(LINE_WIDTH)
+
+pyglet.gl.glEnable(pyglet.gl.GL_LINE_SMOOTH)
+pyglet.gl.glHint(pyglet.gl.GL_LINE_SMOOTH_HINT, pyglet.gl.GL_DONT_CARE)
+
+pyglet.gl.glEnable(pyglet.gl.GL_BLEND)
+pyglet.gl.glBlendFunc(pyglet.gl.GL_SRC_ALPHA, pyglet.gl.GL_ONE_MINUS_SRC_ALPHA)
+
 pyglet.clock.schedule_interval(invalidate_window, 1.0/30)
 max_age = 500
 

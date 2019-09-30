@@ -1,3 +1,4 @@
+import random
 import math
 from time import time
 from itertools import cycle
@@ -12,10 +13,9 @@ COLORS = cycle(iter(((0x50, 0x26, 0xa7), (0x8d, 0x44, 0x8b), (0xcc, 0x6a, 0x87),
 window = pyglet.window.Window(fullscreen=True)
 
 
-class Circle(object):
-    def __init__(self, center_x, center_y, radius=1, is_growing=True, color=(0xaa, 0xaa, 0xaa)):
-        self.birth = time()
 
+class Circle(object):
+    def __init__(self, center_x, center_y, radius=1, is_growing=True, color=(0x33, 0x33, 0xaa)):
         self.update_interval = 0.07
         self.growth_speed = 0.7
 
@@ -29,7 +29,7 @@ class Circle(object):
         self.points = ()
         self._last_calculated = None
 
-        self.alive = 1
+        self.alive = 30
         self.sparseness = 3  # distance between points in circumference
 
         #self.draw_mode = pyglet.gl.GL_POINTS
@@ -37,6 +37,7 @@ class Circle(object):
 
 
     def draw(self):
+        self.alive -= 0.01
         if not self._last_calculated or time() > (self._last_calculated + self.update_interval):
             self._recalculate()
             self._last_calculated = time()
@@ -69,9 +70,6 @@ class Circle(object):
 
         self._vertex_list.vertices = vertex_list
         self._vertex_list.colors = tuple(i for _ in self.points for i in self.color+(int(round(min(255, self.alive*255))),))
-
-        if self.birth < time() - 10:
-            self.alive -= 0.002
 
 
     def collides_with(self, other):
@@ -106,9 +104,15 @@ def invalidate_window(dt):
 
 
 @window.event
+def on_key_press(symbol, modifiers):
+    if symbol in (113, 120):
+        pyglet.app.exit()
+
+@window.event
 def on_mouse_press(x, y, button, modifiers):
     if button == mouse.LEFT:
-        all_circles.append(Circle(x, y, color=next(colors)))
+        add_circle(x, y)
+
 
 @window.event
 def on_draw():
@@ -133,6 +137,19 @@ def on_draw():
     for circle in has_bounce:
         circle.bounce()
 
+def add_circle(x, y):
+    new = Circle(x, y, color=next(COLORS))
+    if any(circle.collides_with(new) for circle in all_circles):
+        pass
+        # BWOMP, illegal
+    else:
+        all_circles.append(new)
+
+def spontaneous_circle(event):
+    x, y = (random.randint(10, length-10) for length in window.get_size())
+    add_circle(x, y)
+
+
 
 all_circles = []
 
@@ -148,9 +165,11 @@ pyglet.gl.glEnable(pyglet.gl.GL_BLEND)
 pyglet.gl.glBlendFunc(pyglet.gl.GL_SRC_ALPHA, pyglet.gl.GL_ONE_MINUS_SRC_ALPHA)
 
 pyglet.clock.schedule_interval(invalidate_window, 1.0/30)
-max_age = 500
 
-all_circles.append(Circle(100, 100, radius=100))
+spontaneous_circle(None)
+
+pyglet.clock.schedule_interval(spontaneous_circle, 10)
+
 
 pyglet.app.run()
 

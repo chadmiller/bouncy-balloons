@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import random
 import math
 from time import time
@@ -12,6 +14,7 @@ COLORS = cycle(iter(((0x50, 0x26, 0xa7), (0x8d, 0x44, 0x8b), (0xcc, 0x6a, 0x87),
 
 window = pyglet.window.Window(fullscreen=True)
 
+most_recent_drag_time = 0
 
 
 class Circle(object):
@@ -113,6 +116,14 @@ def on_mouse_press(x, y, button, modifiers):
     if button == mouse.LEFT:
         add_circle(x, y)
 
+@window.event
+def on_mouse_drag(x, y, dx, dy, buttons, modifiers):
+    global most_recent_drag_time
+    now = time()
+    if buttons == mouse.LEFT:
+        if most_recent_drag_time < (now - 0.3):
+            add_circle(x, y)
+            most_recent_drag_time = now
 
 @window.event
 def on_draw():
